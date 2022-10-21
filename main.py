@@ -141,7 +141,7 @@ if __name__ == "__main__":
     
     if(s=="y"):
         mm = ZO_MarketMaker(cluster, market, margin_coin)
-        mm.connect_to_Zo()
+        asyncio.run(mm.connect_to_Zo())
     else:
         sys.exit(0)
         
