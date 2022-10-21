@@ -12,12 +12,12 @@ class ZO_MarketMaker(Zo):
         
     async def connect_to_Zo(self):
         self.zo = await Zo.new(
-            cluster=self.cluster[0])
+            cluster=self.cluster[0], url="https://solana-api.projectserum.com/")
         print("Connected to wallet address: ", self.zo.wallet.public_key)
      
     async def generate_quotes(self, method, bps=50, bias=.5):
         try:
-            await mm.zo.refresh()
+            await self.zo.refresh()
         except:
             print("error in refreshing")
         if(method=="simple_bps"):
@@ -62,8 +62,11 @@ class ZO_MarketMaker(Zo):
             bid_quote_size = ( margin / 2 ) * 0.95 / quotes['bid_price']
             ask_quote_size = ( margin / 2 ) * 0.95 / quotes['ask_price']
 
+            print('bid', bid_quote_size, 'ask', ask_quote_size)
+            print('position:', self.zo.position[self.market[0]])
+
             #existing inventory
-            position = self.zo.position[self.market].size
+            position = self.zo.position[self.market[0]].size
 
             if(position < 0):
                 bid_quote_size = bid_quote_size + position
@@ -72,15 +75,19 @@ class ZO_MarketMaker(Zo):
                 ask_quote_size = ask_quote_size + position
 
             #get orders    
-            orders = self.zo.orders[self.market]
+            orders = self.zo.orders[self.market[0]]
+
+            print('cancelling orders if there ..')
 
             #cancel exsisting orders
             for order in orders:
-                await zo.cancel_order_by_client_id(order.client_order_id, symbol=self.market)
+                await self.zo.cancel_order_by_client_id(order.client_order_id, symbol=self.market[0])
+
+            print('place order')
 
             #place new orders
-            await zo.place_order(bid_quote_size, quotes['bid_quote_size'], 'bid', symbol=self.market, order_type="limit", client_id=1)
-            await zo.place_order(bid_quote_size, quotes['ask_quote_size'], 'ask', symbol=self.market, order_type="limit", client_id=2)
+            await self.zo.place_order(bid_quote_size, quotes['bid_price'], 'bid', symbol=self.market[0], order_type="limit", client_id=1)
+            await self.zo.place_order(bid_quote_size, quotes['ask_price'], 'ask', symbol=self.market[0], order_type="limit", client_id=2)
         
         except Exception as e:
             print("Error in sending new orders")
@@ -89,14 +96,14 @@ class ZO_MarketMaker(Zo):
             
     async def kill_all(self):
         try:
-            await mm.zo.refresh()
+            await self.zo.refresh()
 
             #get orders    
-            orders = self.zo.orders[self.market]
+            orders = self.zo.orders[self.market[0]]
 
             #cancel exsisting orders
             for order in orders:
-                await zo.cancel_order_by_client_id(order.client_order_id, symbol=self.market)
+                await self.zo.cancel_order_by_client_id(order.client_order_id, symbol=self.market[0])
 
         except Exception as e:
             print("Error in sending Kill All")
@@ -134,7 +141,7 @@ if __name__ == "__main__":
     
     if(s=="y"):
         mm = ZO_MarketMaker(cluster, market, margin_coin)
-        asyncio.run(mm.connect_to_Zo())
+        mm.connect_to_Zo()
     else:
         sys.exit(0)
         
@@ -142,7 +149,7 @@ if __name__ == "__main__":
     
     index_price = mm.zo.markets[mm.market[0]].index_price
     mark_price = mm.zo.markets[mm.market[0]].mark_price
-    funding_rate = mm.zo.markets[mm.market[0]].funding_rate
+    funding_rate = mm.zo.markets[mm.market[0]].funding_info.hourly
     
     print("\nIndex Price for :", index_price)
     print("Market Price for :", mark_price)
